@@ -114,13 +114,13 @@ cd arris_stats
 sudo docker build -t arris_stats
 ```
 
-Run the image. Default settings should work fine, but can be overridden with environment variables:
+Run the image. Default settings assume Influx DB is on the same machine, but this can be overridden with environment variables:
 
 ```bash
 sudo docker run --detach arris_stats:latest
 ```
 
-## Environment Variables
+### Environment Variables
 
 | Variable | Notes | Default |
 | --- | --- | --- |
@@ -130,6 +130,59 @@ sudo docker run --detach arris_stats:latest
 | `INFLUXDB_DATABASE` | Name of the database. | cm8200b_stats |
 | `INFLUXDB_USERNAME` | InfluxDB user with access to the database. | admin |
 | `INFLUXDB_PASSWORD` | Password for the InfluxDB user. | _(empty)_ |
+
+### Docker Compose
+
+Docker Compose can also be used. Here is a simple `docker-compose.yml` example to run InfluxDB, Grafana and cm8200_stats.py in a single stack:
+
+```
+version: "3"
+
+services:
+
+  influxdb:
+    restart: always
+    image: influxdb:1.8
+    ports:
+      - '8086:8086'
+    volumes:
+      - influxdb:/var/lib/influxdb
+    environment:
+      - INFLUXDB_DB=cm8200b
+      - INFLUXDB_HTTP_AUTH_ENABLED=true
+      - INFLUXDB_ADMIN_USER=admin
+      - INFLUXDB_USER=cm8200b
+      - INFLUXDB_USER_PASSWORD=supersecretpassword
+
+  grafana:
+    image: grafana/grafana:latest
+    restart: always
+    ports:
+      - '3000:3000'
+    volumes:
+      - grafana:/var/lib/grafana
+    depends_on:
+      - influxdb
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=extrasupersecretpassword
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,natel-discrete-panel,grafana-piechart-panel
+
+  script:
+    image: arris_stats:latest
+    restart: always
+    depends_on:
+      - influxdb
+    environment:
+      - _CHAP_INTERVAL: "*/5 * * * *"
+      - INFLUXDB_DATABASE: cm8200b
+      - INFLUXDB_USERNAME: cm8200b
+      - INFLUXDB_PASSWORD: supersecretpassword
+
+volumes:
+  influxdb:
+  grafana:
+```
 
 ## To Do List        
 
