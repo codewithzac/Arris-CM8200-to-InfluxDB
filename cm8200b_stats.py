@@ -9,7 +9,7 @@ from influxdb import InfluxDBClient
 from datetime import datetime
 
 # Change settings below to your influxdb - database needs to be created or existing db
-# creates 5 tables - downlink, uplink, fw_ver, uptime, event_log
+# creates 6 tables - config_file, downstream_statistics, upstream_statistics, fw_ver, uptime, event_log
 
 # Second argument = default value if environment variable is not set.
 influxip = os.environ.get("INFLUXDB_HOST", "127.0.0.1")
@@ -20,7 +20,7 @@ influxpass = os.environ.get("INFLUXDB_PASSWORD", "")
 
 # cm8200b URLs - leave these as is unless a firmware upgrade changes them
 ntd_url = os.environ.get("NTD_URL", "http://192.168.0.1")
-linestats = "%s/cmconnectionstatus.html" % ntd_url
+linestats = "%s/main.html" % ntd_url
 generalstats = "%s/cmswinfo.html" % ntd_url
 logstats = "%s/cmeventlog.html" % ntd_url
 
@@ -38,12 +38,47 @@ def main():
         print("An error occured fetching %s \n %s" % (linestats, e.reason))
         return 1
     soup = BeautifulSoup(resp.read(), "lxml")
+    
+    # COLLECT CONFIG FILE
+
+    # Get table
+    try:
+        table = soup.find_all("table")[0]  # Grab the first table
+    except AttributeError as e:
+        print("No tables found, exiting")
+        return 1
+    
+    # Get rows
+    try:
+        rows = table.find_all("tr")
+    except AttributeError as e:
+        print("No table rows found, exiting")
+        return 1
+
+    # Get data
+    n_rows = 0
+    
+    for row in rows:
+        table_data = row.find_all("td")
+        if table_data:
+            n_rows += 1
+            if n_rows == 5:
+                
+                json_body = [
+                    {
+                        "measurement": "config_file",
+                        "tags": {"host": "cm8200b"},
+                        "fields": {"file": table_data[2].text},
+                    }
+                ]
+                print(json_body)
+                client.write_points(json_body)
 
     # COLLECT DOWNSTREAM DATA
 
     # Get table
     try:
-        table = soup.find_all("table")[1]  # Grab the first table
+        table = soup.find_all("table")[1]  # Grab the second table
     except AttributeError as e:
         print("No tables found, exiting")
         return 1
@@ -90,7 +125,7 @@ def main():
 
     # Get table
     try:
-        table = soup.find_all("table")[2]  # Grab the first table
+        table = soup.find_all("table")[2]  # Grab the third table
     except AttributeError as e:
         print("No tables found, exiting")
         return 1
@@ -181,7 +216,7 @@ def main():
 
     # Get table
     try:
-        table = soup.find_all("table")[1]  # Grab the first table
+        table = soup.find_all("table")[1]  # Grab the second table
     except AttributeError as e:
         print("No tables found, exiting")
         return 1
@@ -235,7 +270,7 @@ def main():
     # Remove previous log information as its not required. This will also more or less simulate a reboot thus losing previous log files
     # It also aids in the selection of the logs ensuring none are skipped due to same time stamps etc. I was also having some rather major issues with duplicates and incorrect dispalying within grafana.
     # If anyone has a better way of doing this please let me know or fork it.
-    client.drop_measurement("event_log")
+    client.delete_series(measurement="event_log")
 
     # Get table
     try:
