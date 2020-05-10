@@ -97,6 +97,40 @@ $ sudo nano /etc/grafana/grafana.ini
 # If set to true Grafana will allow script tags in text panels. Not recommended as it enable XSS vulnerabilities.
 disable_sanitize_html = true
 ```
+## Installation (Docker)
+
+**Note:** You need to set up InfluxDB and Grafana before configuring the Docker image!
+
+Clone to machine. Directory isn't important; `/tmp/` will work fine:
+
+```bash
+sudo git clone https://github.com/risb0r/Arris-CM8200-to-InfluxDB.git arris_stats
+```
+
+Build Docker image:
+
+```bash
+cd arris_stats
+sudo docker build -t arris_stats
+```
+
+Run the image. Default settings should work fine, but can be overridden with environment variables:
+
+```bash
+sudo docker run --detach arris_stats:latest
+```
+
+## Environment Variables
+
+| Variable | Notes | Default |
+| --- | --- | --- |
+| `_CHAP_INTERVAL` | Sets the schedule for running cm8200_stats.py.<br>Uses [Cron expressions](https://crontab.guru/examples.html). | * * * * *<br>_(i.e., every 1 minute)_ |
+| `INFLUXDB_HOST` | Sets the hostname of the InfluxDB server. | 127.0.0.1 |
+| `INFLUXDB_HOST_PORT` | Sets the port of the InfluxDB server. | 8086 |
+| `INFLUXDB_DATABASE` | Name of the database. | cm8200b_stats |
+| `INFLUXDB_USERNAME` | InfluxDB user with access to the database. | admin |
+| `INFLUXDB_PASSWORD` | Password for the InfluxDB user. | _(empty)_ |
+
 ## To Do List        
 
 Auto scrape [Whirlpool](https://whirlpool.net.au/wiki/cmts-upgrades) and plug in the CMTS info from the wiki rather than just filling out a text box. Personally, I can't be bothered or care too much for something that will go mostly unchanged.
